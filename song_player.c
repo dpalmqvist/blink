@@ -1,9 +1,10 @@
-// Function to play a song (music and lighting separately)
+// song_player.c
+
 #include "song_player.h"
 #include "hardware/pwm.h"
 #include "blink.h"
 #include "pico/stdlib.h"
-#include "stdint.h"
+#include <stdint.h>
 
 void play_song(Note* melody, int melody_length, LightEvent* lighting, int lighting_length, uint slice_num) {
     int melody_index = 0;
@@ -43,13 +44,32 @@ void play_song(Note* melody, int melody_length, LightEvent* lighting, int lighti
                 pwm_set_enabled(slice_num, true);
             }
 
+            // Calculate note end time
             melody_end_time = current_time + duration;
-            melody_index++;
-        }
 
-        // Stop the note when its duration has passed
-        if (current_time >= melody_end_time) {
+            // Play the note for the specified duration minus the pause
+            uint16_t note_play_duration = duration * 0.9; // Play 90% of the note duration
+            uint16_t note_pause_duration = duration - note_play_duration; // Pause for the remaining 10%
+
+            // Update melody_end_time to end after the note play duration
+            melody_end_time = current_time + note_play_duration;
+
+            // Wait until the note play duration has passed
+            while (to_ms_since_boot(get_absolute_time()) < melody_end_time) {
+                // Optionally, you can add sleep here
+                sleep_ms(1);
+            }
+
+            // Turn off PWM to create a brief pause
             pwm_set_enabled(slice_num, false);
+
+            // Wait for the pause duration
+            sleep_ms(note_pause_duration);
+
+            // Update melody_end_time to account for the pause
+            melody_end_time = current_time + duration;
+
+            melody_index++;
         }
 
         // Handle lighting effects
